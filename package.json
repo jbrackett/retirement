@@ -1,0 +1,19 @@
+{
+  "name": "retirement-success-dashboard",
+  "version": "1.0.0",
+  "description": "Interactive Retirement Success & Monte Carlo Simulation Dashboard",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "retirement",
+    "monte-carlo",
+    "financial-planning",
+    "dashboard",
+    "simulation"
+  ],
+  "author": "",
+  "license": "MIT"
+}

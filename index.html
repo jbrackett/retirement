@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Retirement Success & Monte Carlo Simulator</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header class="top-header">
+    <div class="header-content">
+      <div class="brand-section">
+        <div class="brand-icon">📈</div>
+        <div class="brand-title">
+          <h1>Retirement Success & Monte Carlo Simulator</h1>
+          <p>Historical Analysis (1928–2024) • Tax-Aware Asset Drawdown • Gap Diagnostics</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button id="btn-open-sheet-import" class="btn btn-primary" title="Import account balances from Google Sheets or CSV">📊 Import Sheet</button>
+        <button id="btn-export" class="btn" title="Export plan to JSON file">💾 Export</button>
+        <button id="btn-import" class="btn" title="Load plan from JSON file">📂 Import</button>
+        <input type="file" id="file-input" accept=".json">
+        <button id="btn-print" class="btn" title="Print or save as PDF">🖨️ PDF Report</button>
+        <button id="btn-theme" class="btn" title="Toggle dark/light mode">🌙 Theme</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="dashboard-container">
+
+    <!-- Top KPI Scorecards -->
+    <section class="kpi-grid">
+      <div class="kpi-card" id="kpi-card-success">
+        <div class="kpi-label">
+          <span>Success Probability</span>
+          <span id="kpi-icon-success">🎯</span>
+        </div>
+        <div class="kpi-value" id="kpi-success-rate">--%</div>
+        <div class="kpi-subtext" id="kpi-success-subtext">Based on 10,000 simulations</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">
+          <span>Median Ending Wealth</span>
+          <span>💰</span>
+        </div>
+        <div class="kpi-value" id="kpi-median-wealth">$0</div>
+        <div class="kpi-subtext" id="kpi-wealth-subtext">At planning horizon (Age 95)</div>
+      </div>
+
+      <div class="kpi-card" id="kpi-card-safe-spend">
+        <div class="kpi-label">
+          <span>Safe Spending Capacity</span>
+          <span>🛡️</span>
+        </div>
+        <div class="kpi-dual-values">
+          <div class="kpi-dual-row">
+            <span class="kpi-dual-badge badge-100">100% Safe</span>
+            <span class="kpi-dual-val val-100" id="kpi-safe-spend-100">$0/yr</span>
+          </div>
+          <div class="kpi-dual-row">
+            <span class="kpi-dual-badge badge-95">95% Target</span>
+            <span class="kpi-dual-val" id="kpi-safe-spend">$0/yr</span>
+          </div>
+        </div>
+        <div class="kpi-subtext" id="kpi-spend-subtext">Zero-failure vs. 95% benchmark</div>
+      </div>
+
+      <div class="kpi-card" id="kpi-card-failure">
+        <div class="kpi-label">
+          <span>Earliest Depletion</span>
+          <span>⚠️</span>
+        </div>
+        <div class="kpi-value" id="kpi-failure-age">None</div>
+        <div class="kpi-subtext" id="kpi-failure-subtext">Worst 10% historical sequence</div>
+      </div>
+
+      <div class="kpi-card" id="kpi-card-tax">
+        <div class="kpi-label">
+          <span>Est. Lifetime Fed Taxes</span>
+          <span>🏛️</span>
+        </div>
+        <div class="kpi-value" id="kpi-lifetime-tax">$0</div>
+        <div class="kpi-subtext" id="kpi-tax-subtext">Median total across retirement</div>
+      </div>
+    </section>
+
+    <!-- Diagnostics & Gap Analysis Card -->
+    <section class="diagnostics-card">
+      <div class="diagnostics-header">
+        <span>🔍</span>
+        <h3>Diagnostics & Actionable Gap Recommendations</h3>
+      </div>
+      <div class="alert-list" id="diagnostic-alerts-container">
+        <!-- Dynamically populated by engine -->
+      </div>
+    </section>
+
+    <!-- Main Workspace Split: Left Controls / Right Analytics -->
+    <div class="workspace-grid">
+
+      <!-- Left Sidebar Controls Panel -->
+      <aside class="controls-panel">
+        <div class="panel-header">
+          <h2>Planning Assumptions</h2>
+          <div style="display: flex; gap: 0.4rem; align-items: center;">
+            <button id="btn-rerun" class="btn btn-primary" style="padding: 0.25rem 0.65rem; font-size: 0.8rem; font-weight: 600;" title="Re-run Monte Carlo Simulation with current assumptions">⚡ Re-run</button>
+            <button id="btn-reset" class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" title="Reset assumptions to default balanced plan">Reset</button>
+          </div>
+        </div>
+
+        <!-- Section 1: Demographics & Timeline -->
+        <details class="form-section" open>
+          <summary class="section-summary">
+            <span>📅 Timeline & Family</span>
+            <span>▼</span>
+          </summary>
+          <div class="section-body">
+            <div class="two-col-inputs">
+              <div class="input-group">
+                <label>Current Age</label>
+                <input type="number" id="input-current-age" min="20" max="80" value="45">
+              </div>
+              <div class="input-group">
+                <label>Retirement Age</label>
+                <input type="number" id="input-retirement-age" min="30" max="85" value="65">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label>Planning Horizon (End Age)</label>
+              <input type="number" id="input-end-age" min="70" max="105" value="95">
+            </div>
+
+            <div class="input-group" style="flex-direction: row; align-items: center; justify-content: space-between;">
+              <label for="input-include-spouse" style="cursor: pointer;">Include Spouse / Partner</label>
+              <input type="checkbox" id="input-include-spouse" checked style="cursor: pointer; width: 18px; height: 18px;">
+            </div>
+
+            <div id="spouse-fields-container">
+              <div class="two-col-inputs" style="margin-bottom: 0.75rem;">
+                <div class="input-group">
+                  <label>Spouse Current Age</label>
+                  <input type="number" id="input-spouse-age" min="20" max="85" value="43">
+                </div>
+                <div class="input-group">
+                  <label>Spouse Retirement Age</label>
+                  <input type="number" id="input-spouse-retirement-age" min="30" max="85" value="67">
+                </div>
+              </div>
+
+              <div class="two-col-inputs">
+                <div class="input-group">
+                  <label>Spouse Salary ($/yr)</label>
+                  <input type="number" id="input-spouse-salary" min="0" step="2500" value="65000">
+                </div>
+                <div class="input-group">
+                  <label>Tax Filing Status</label>
+                  <select id="input-tax-filing">
+                    <option value="married" selected>Married Filing Jointly</option>
+                    <option value="single">Single</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- Section 2: Current Account Balances -->
+        <details class="form-section" open>
+          <summary class="section-summary">
+            <span>🏦 Current Account Balances</span>
+            <span>▼</span>
+          </summary>
+          <div class="section-body">
+            <div class="input-group">
+              <div class="input-label-row">
+                <label>Liquid / Taxable Accounts</label>
+                <span class="unit">Cash, Savings, Brokerage</span>
+              </div>
+              <div class="slider-input-wrapper">
+                <input type="range" id="range-liquid" min="0" max="1500000" step="10000" value="150000">
+                <input type="number" id="input-liquid" min="0" step="5000" value="150000">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <div class="input-label-row">
+                <label>Tax-Deferred Accounts</label>
+                <span class="unit">Traditional 401(k), 403(b), IRA</span>
+              </div>
+              <div class="slider-input-wrapper">
+                <input type="range" id="range-tax-deferred" min="0" max="3000000" step="25000" value="600000">
+                <input type="number" id="input-tax-deferred" min="0" step="10000" value="600000">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <div class="input-label-row">
+                <label>Tax-Free Accounts</label>
+                <span class="unit">Roth IRA, Roth 401(k), HSA</span>
+              </div>
+              <div class="slider-input-wrapper">
+                <input type="range" id="range-roth" min="0" max="1500000" step="10000" value="100000">
+                <input type="number" id="input-roth" min="0" step="5000" value="100000">
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- Section 3: Pre-Retirement Annual Savings -->
+        <details class="form-section">
+          <summary class="section-summary">
+            <span>💵 Annual Pre-Retirement Savings</span>
+            <span>▼</span>
+          </summary>
+          <div class="section-body">
+            <div class="input-group">
+              <label>Savings to Liquid / Taxable ($/yr)</label>
+              <input type="number" id="input-save-liquid" min="0" step="1000" value="10000">
+            </div>
+
+            <div class="two-col-inputs">
+              <div class="input-group">
+                <label>To 401(k)/IRA ($/yr)</label>
+                <input type="number" id="input-save-deferred" min="0" step="1000" value="23000">
+              </div>
+              <div class="input-group">
+                <label>Employer Match ($/yr)</label>
+                <input type="number" id="input-employer-match" min="0" step="500" value="7000">
+              </div>
+            </div>
+
+            <div class="two-col-inputs">
+              <div class="input-group">
+                <label>To Roth / HSA ($/yr)</label>
+                <input type="number" id="input-save-roth" min="0" step="1000" value="8000">
+              </div>
+              <div class="input-group">
+                <label>Annual Raise / Wage Growth</label>
+                <input type="number" id="input-wage-growth" min="0" max="10" step="0.5" value="2.5">
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- Section 4: Retirement Spending -->
+        <details class="form-section" open>
+          <summary class="section-summary">
+            <span>🛒 Retirement Spending</span>
+            <span>▼</span>
+          </summary>
+          <div class="section-body">
+            <div class="input-group">
+              <div class="input-label-row">
+                <label>Base Living Expenses</label>
+                <span class="unit">Today's Dollars / Year</span>
+              </div>
+              <div class="slider-input-wrapper">
+                <input type="range" id="range-base-spend" min="20000" max="250000" step="5000" value="80000">
+                <input type="number" id="input-base-spend" min="10000" step="2500" value="80000">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <div class="input-label-row">
+                <label>Essential vs. Discretionary Split</label>
+                <span class="unit">% Essential</span>
+              </div>
+              <div class="slider-input-wrapper">
+                <input type="range" id="range-essential-pct" min="0" max="100" step="5" value="70">
+                <input type="number" id="input-essential-pct" min="0" max="100" step="5" value="70">
+              </div>
+              <div id="essential-split-display" style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem; display:flex; justify-content:space-between; flex-wrap:wrap; gap:0.25rem;">
+                <span>🛡️ <strong>Essential:</strong> $56,000/yr (70%)</span>
+                <span>🎉 <strong>Discretionary:</strong> $24,000/yr (30%)</span>
+              </div>
+              <div id="guaranteed-floor-badge" style="font-size:0.72rem; padding:0.25rem 0.5rem; border-radius:4px; margin-top:0.35rem; background:rgba(16, 185, 129, 0.1); color:#10b981; border:1px solid rgba(16, 185, 129, 0.2); font-weight:500;">
+                🛡️ Guaranteed Floor: Calculating...
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label>Spending Model Pattern</label>
+              <select id="input-spend-model">
+                <option value="flat">Flat Spending (Constant purchasing power)</option>
+                <option value="smile" selected>Retirement Smile (Go-Go active +10%, Slow-Go -12%, Late Care +5%)</option>
+              </select>
+            </div>
+
+            <div class="input-group" style="margin-top:0.75rem; padding-top:0.6rem; border-top:1px dashed var(--border-color, rgba(255,255,255,0.1));">
+              <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; font-weight:600;">
+                <input type="checkbox" id="input-belt-tightening" checked style="cursor:pointer; width:1rem; height:1rem;">
+                <span>📉 Down-Market Belt-Tightening</span>
+              </label>
+              <div id="belt-tightening-options" style="margin-top:0.5rem; padding-left:1.5rem;">
+                <div class="input-label-row">
+                  <label style="font-size:0.8rem; font-weight:normal;">Discretionary Cut in Down Years</label>
+                  <span class="unit">% Cut</span>
+                </div>
+                <div class="slider-input-wrapper">
+                  <input type="range" id="range-belt-tighten-pct" min="10" max="100" step="10" value="50">
+                  <input type="number" id="input-belt-tighten-pct" min="10" max="100" step="10" value="50">
+                </div>
+                <div id="belt-tightening-desc" style="font-size:0.73rem; color:var(--text-muted); margin-top:0.3rem;">
+                  📉 In down years: trims discretionary spend by 50% ($12,000/yr savings) to protect the portfolio.
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- Section 5: Guaranteed Retirement Incomes -->
+        <details class="form-section" open>
+          <summary class="section-summary">
+            <span>🛡️ Guaranteed Incomes (SS & Pensions)</span>
+            <span>▼</span>
+          </summary>
+          <div class="section-body">
+            <div class="two-col-inputs">
+              <div class="input-group">
+                <label>Social Security ($/yr)</label>
+                <input type="number" id="input-ss-benefit" min="0" step="1000" value="36000">
+              </div>
+              <div class="input-group">
+                <label>Claiming Age</label>
+                <input type="number" id="input-ss-age" min="62" max="70" value="67">
+              </div>
+            </div>
+
+            <div id="spouse-ss-row" class="two-col-inputs">
+              <div class="input-group">
+                <label>Spouse SS ($/yr)</label>
+                <input type="number" id="input-spouse-ss" min="0" step="1000" value="22000">
+              </div>
+              <div class="input-group">
+                <label>Spouse Claiming Age</label>
+                <input type="number" id="input-spouse-ss-age" min="62" max="70" value="67">
+              </div>
+            </div>
+
+            <div class="two-col-inputs">
+              <div class="input-group">
+                <label>Pension / Annuity ($/yr)</label>
+                <input type="number" id="input-pension" min="0" step="1000" value="0">
+              </div>
+              <div class="input-group">
+                <label>Pension Start Age</label>
+                <input type="number" id="input-pension-age" min="50" max="75" value="65">
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- Section 6: Withdrawal & Tax Strategy -->
+        <details class="form-section" open>
+          <summary class="section-summary">
+            <span>🏛️ Withdrawal & Tax Strategy</span>
+            <span>▼</span>
+          </summary>
+          <div class="section-body">
+            <div class="input-group">
+              <label>Drawdown Strategy</label>
+              <select id="input-withdrawal-strategy">
+                <option value="liquidFirst" selected>Liquid First (Standard Waterfall)</option>
+                <option value="proportional">Proportional Drawdown (Balanced)</option>
+                <option value="bracketFilling">10% & 12% Bracket Filling</option>
+                <option value="rothConversion">Strategic Roth Conversions (Defuse RMDs)</option>
+                <option value="acaMaximizer">ACA Subsidy Maximizer (Pre-Medicare)</option>
+              </select>
+            </div>
+
+            <div id="strategy-target-bracket-container" class="input-group" style="display: none;">
+              <label>Target Tax Bracket Ceiling</label>
+              <select id="input-target-bracket">
+                <option value="0.12" selected>12% Bracket (~$123.5k Married / ~$61.8k Single)</option>
+                <option value="0.22">22% Bracket (~$230.2k Married / ~$115.1k Single)</option>
+              </select>
+            </div>
+
+            <div class="input-group" style="flex-direction: row; align-items: center; justify-content: space-between;">
+              <label for="input-rule-55" style="cursor: pointer;" title="Waives 10% penalty on employer 401(k) withdrawals for retirements at age 55 or older">Employer Rule of 55 (Penalty-Free at 55+)</label>
+              <input type="checkbox" id="input-rule-55" checked style="cursor: pointer; width: 18px; height: 18px;">
+            </div>
+
+            <div class="input-group" style="flex-direction: row; align-items: center; justify-content: space-between;">
+              <label for="input-rule-72t" style="cursor: pointer;" title="Waives 10% penalty on pre-59½ 401(k)/IRA withdrawals via Substantially Equal Periodic Payments (SEPP) when liquid reserves deplete">IRS Rule 72(t) SEPP (Penalty-Free Pre-59½)</label>
+              <input type="checkbox" id="input-rule-72t" checked style="cursor: pointer; width: 18px; height: 18px;">
+            </div>
+
+            <div class="strategy-card-box">
+              <div id="strategy-card-title" class="strategy-title">Liquid First (Standard Waterfall)</div>
+              <div id="strategy-card-tagline" class="strategy-tagline">Spend taxable cash & brokerage first to preserve tax-deferred compounding</div>
+              <div id="strategy-card-desc" class="strategy-desc">Spends taxable accounts first, allowing 401(k) to grow tax-deferred. Once liquid accounts deplete, draws shift to 401(k) and finally Roth. Simple and avoids early 401(k) penalties, but can create a significant RMD tax surge at age 73.</div>
+            </div>
+          </div>
+        </details>
+
+        <!-- Section 7: Portfolio Allocation & Simulation Setup -->
+        <details class="form-section">
+          <summary class="section-summary">
+            <span>⚙️ Asset Allocation & Simulation Mode</span>
+            <span>▼</span>
+          </summary>
+          <div class="section-body">
+            <div class="input-group">
+              <label>Stocks / Equities %</label>
+              <div class="slider-input-wrapper">
+                <input type="range" id="range-stocks" min="0" max="100" step="5" value="70">
+                <input type="number" id="input-stocks" min="0" max="100" value="70">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label>Bonds / Fixed Income %</label>
+              <div class="slider-input-wrapper">
+                <input type="range" id="range-bonds" min="0" max="100" step="5" value="25">
+                <input type="number" id="input-bonds" min="0" max="100" value="25">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label>Cash / Short Term %</label>
+              <div class="slider-input-wrapper">
+                <input type="range" id="range-cash" min="0" max="100" step="5" value="5">
+                <input type="number" id="input-cash" min="0" max="100" value="5">
+              </div>
+            </div>
+
+            <div class="input-group" style="flex-direction: row; align-items: center; justify-content: space-between;">
+              <label for="input-glidepath" style="cursor: pointer;">Glide Path (Reduce stock by 0.5%/yr in retirement)</label>
+              <input type="checkbox" id="input-glidepath" checked style="cursor: pointer; width: 18px; height: 18px;">
+            </div>
+
+            <div class="input-group">
+              <label>Simulation Engine Mode</label>
+              <select id="input-sim-mode">
+                <option value="monteCarloParametric" selected>Parametric Monte Carlo</option>
+                <option value="monteCarloBootstrap">Historical Bootstrap Resampling (1928–2024)</option>
+                <option value="historicalSequences">Rolling Historical Sequences (All 97 Eras)</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label>Simulation Iterations</label>
+              <select id="input-sim-iterations">
+                <option value="1000">1,000 Runs (Fast)</option>
+                <option value="5000">5,000 Runs (Standard)</option>
+                <option value="10000" selected>10,000 Runs (High Precision Default)</option>
+                <option value="20000">20,000 Runs (Maximum Depth)</option>
+              </select>
+            </div>
+
+            <div id="sim-status-badge" style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted); text-align: center; min-height: 1.2rem; transition: color 0.2s;">
+              ✓ 10,000 runs active
+            </div>
+          </div>
+        </details>
+      </aside>
+
+      <!-- Right Analytics Visualizations -->
+      <section class="analytics-panel">
+
+        <!-- Visual Analytics Tabs & Canvas -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3 id="active-chart-title">Monte Carlo Net Worth Percentiles</h3>
+            <div class="chart-tabs">
+              <button class="tab-btn active" data-tab="fan">Monte Carlo Fan</button>
+              <button class="tab-btn" data-tab="accounts">Account Drawdown</button>
+              <button class="tab-btn" data-tab="cashflow">Cash Flows & Taxes</button>
+              <button class="tab-btn" data-tab="stress">Historical Stress Test</button>
+            </div>
+          </div>
+
+          <!-- Canvas Display -->
+          <div class="canvas-wrapper">
+            <canvas id="main-chart-canvas"></canvas>
+            <div class="chart-tooltip" id="chart-tooltip"></div>
+          </div>
+
+          <!-- Dynamic Legend -->
+          <div class="chart-legend" id="chart-legend">
+            <!-- Dynamically populated per tab -->
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Google Sheet / CSV Import Modal -->
+  <dialog id="sheet-import-modal" class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><span>📊</span> Import Accounts from Net Worth Sheet</h3>
+        <button id="btn-close-import-modal" class="modal-close-btn" title="Close dialog">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="paste-area-wrapper">
+          <div style="font-size: 0.85rem; color: var(--text-muted);">
+            Select cells in your Google Sheet, press <strong>Cmd+C</strong>, and paste (<strong>Cmd+V</strong>) below:
+          </div>
+          <textarea id="sheet-paste-input" class="paste-textarea" placeholder="Paste your accounts directly from Google Sheets here... (e.g.&#10;Vanguard 401K:   $687,038.00&#10;Fidelity IRA:    $325,105.00&#10;Fidelity Roth:   $98,674.00&#10;HSA:             $57,026.00&#10;Total Brokerage: $1,496,145.00)"></textarea>
+          
+          <div class="importer-actions-row">
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <button id="btn-upload-sheet-file" class="btn" style="font-size: 0.8rem;">📁 Upload .CSV / .TSV</button>
+              <input type="file" id="sheet-file-input" accept=".csv,.tsv,.txt" style="display: none;">
+              <button id="btn-load-sample-sheet" class="btn" style="font-size: 0.8rem;">Load Sample Accounts</button>
+            </div>
+            <button id="btn-clear-sheet-input" class="btn" style="font-size: 0.8rem; color: var(--danger);">Clear</button>
+          </div>
+        </div>
+
+        <!-- Real-Time Subtotal Summary Chips -->
+        <div class="import-summary-chips" id="import-summary-chips">
+          <div class="summary-chip chip-liquid">
+            <span class="summary-chip-label">Liquid / Taxable</span>
+            <span class="summary-chip-val" id="chip-val-liquid">$0</span>
+          </div>
+          <div class="summary-chip chip-deferred">
+            <span class="summary-chip-label">Tax-Deferred</span>
+            <span class="summary-chip-val" id="chip-val-deferred">$0</span>
+          </div>
+          <div class="summary-chip chip-roth">
+            <span class="summary-chip-label">Tax-Free (Roth/HSA)</span>
+            <span class="summary-chip-val" id="chip-val-roth">$0</span>
+          </div>
+          <div class="summary-chip chip-total">
+            <span class="summary-chip-label">Total Included</span>
+            <span class="summary-chip-val" id="chip-val-total">$0</span>
+          </div>
+        </div>
+
+        <!-- Parsed Accounts Review Table -->
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <strong style="font-size: 0.85rem;">Detected Accounts (<span id="detected-account-count">0</span>):</strong>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Tweak categories or uncheck to exclude</span>
+          </div>
+          <div class="preview-table-wrapper">
+            <table class="import-table">
+              <thead>
+                <tr>
+                  <th style="width: 38px; text-align: center;">Inc.</th>
+                  <th>Account Name</th>
+                  <th style="text-align: right;">Balance</th>
+                  <th>Assigned Bucket</th>
+                </tr>
+              </thead>
+              <tbody id="import-table-body">
+                <tr>
+                  <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                    No accounts parsed yet. Paste cells from your Google Sheet above!
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btn-cancel-import" class="btn">Cancel</button>
+        <button id="btn-apply-import" class="btn btn-primary" disabled>Apply to Retirement Plan</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Modular Scripts -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
